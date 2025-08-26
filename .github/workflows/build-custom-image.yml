@@ -1,121 +1,104 @@
-name: Build minimal Ubuntu eBPF image
+name: Build Ubuntu Image
+
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 2 * * 1'
+    - cron: '0 2 * * 1'  # Weekly builds
   workflow_dispatch:
 
 env:
   UBUNTU_VERSION: "24.04"
+  PACKER_VERSION: "1.10.3"
 
 jobs:
   build-image:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
-    
-    - name: Install build tools
+
+    - name: Setup Packer
+      uses: hashicorp/setup-packer@main
+      with:
+        version: ${{ env.PACKER_VERSION }}
+
+    - name: Install QEMU/KVM
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-utils qemu-system-x86-64 wget
-        sudo modprobe nbd max_part=16
-    
-    - name: Download base image
+        sudo apt-get install -y qemu-kvm qemu-system-x86-64 qemu-utils
+        sudo modprobe kvm
+        sudo chmod 666 /dev/kvm
+
+    - name: Download Ubuntu cloud image
+      working-directory: ./packer
       run: |
         wget https://cloud-images.ubuntu.com/releases/${{ env.UBUNTU_VERSION }}/release/ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img
-    
-    - name: Customize image using qemu-nbd
+
+    - name: Initialize Packer
+      working-directory: ./packer
+      run: packer init ubuntu.pkr.hcl
+
+    - name: Validate Packer configuration
+      working-directory: ./packer
+      run: packer validate ubuntu.pkr.hcl
+
+    - name: Build image
+      working-directory: ./packer
       run: |
-        # Connect the image as a network block device
-        sudo qemu-nbd -c /dev/nbd0 ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img
-        sleep 2
+        packer build \
+          -var "ubuntu_version=${{ env.UBUNTU_VERSION }}" \
+          -var "output_directory=../output" \
+          ubuntu.pkr.hcl
+
+    - name: Prepare release artifacts
+      run: |
+        cd output
+        IMAGE_NAME="ubuntu-${{ env.UBUNTU_VERSION }}-$(date +%Y%m%d).img"
+        mv *.img "$IMAGE_NAME"
         
-        # Create mount point and mount the filesystem
-        sudo mkdir -p /mnt/ubuntu-image
-        sudo mount /dev/nbd0p1 /mnt/ubuntu-image
+        # Create checksum
+        sha256sum "$IMAGE_NAME" > "${IMAGE_NAME}.sha256"
         
-        # Prepare for chroot
-        sudo mount --bind /dev /mnt/ubuntu-image/dev
-        sudo mount --bind /proc /mnt/ubuntu-image/proc
-        sudo mount --bind /sys /mnt/ubuntu-image/sys
-        
-        # Handle resolv.conf properly
-        if [ -L /mnt/ubuntu-image/etc/resolv.conf ]; then
-          sudo rm /mnt/ubuntu-image/etc/resolv.conf
-        fi
-        sudo cp /etc/resolv.conf /mnt/ubuntu-image/etc/resolv.conf
-        
-        # Create and run customization script
-        cat > customize_script.sh << 'EOF'
-        #!/bin/bash
-        set -e
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        
-        # Install kernel headers and kernel-specific tools first
-        apt-get install -y linux-headers-generic
-        
-        # Get the installed kernel version and install corresponding tools
-        KERNEL_VERSION=$(ls /lib/modules/ | grep -E '^[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-        if [ -n "$KERNEL_VERSION" ]; then
-          apt-get install -y linux-tools-${KERNEL_VERSION} linux-tools-generic || \
-          apt-get install -y linux-tools-common
-        else
-          apt-get install -y linux-tools-common
-        fi
-        
-        # Install other eBPF-related packages
-        apt-get install -y libbpf1 clang wget net-tools qemu-guest-agent
-        
-        # Configure BPF filesystem
-        echo "bpffs /sys/fs/bpf bpf defaults 0 0" >> /etc/fstab
-        mkdir -p /sys/fs/bpf
-        
-        # Clean up
-        apt-get clean
-        rm -rf /var/lib/apt/lists/*
-        EOF
-        
-        chmod +x customize_script.sh
-        sudo cp customize_script.sh /mnt/ubuntu-image/tmp/
-        
-        # Run customization in chroot
-        sudo chroot /mnt/ubuntu-image /tmp/customize_script.sh
-        
-        # Clean up
-        sudo rm /mnt/ubuntu-image/tmp/customize_script.sh
-        sudo rm /mnt/ubuntu-image/etc/resolv.conf
-        
-        # Restore original resolv.conf symlink
-        if [ ! -f /mnt/ubuntu-image/etc/resolv.conf ]; then
-          sudo chroot /mnt/ubuntu-image ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-        fi
-        
-        # Unmount everything
-        sudo umount /mnt/ubuntu-image/dev
-        sudo umount /mnt/ubuntu-image/proc  
-        sudo umount /mnt/ubuntu-image/sys
-        sudo umount /mnt/ubuntu-image
-        sudo qemu-nbd -d /dev/nbd0
-        
-        # Rename with date
-        mv ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img ubuntu-ebpf-$(date +%Y%m%d).img
-    
-    - name: Create release
+        # Compress for faster download
+        gzip "$IMAGE_NAME"
+
+    - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v$(date +%Y%m%d)
-        name: Ubuntu eBPF $(date +%Y-%m-%d)
-        files: ubuntu-ebpf-*.img
+        tag_name: v$(date +%Y%m%d-%H%M)
+        name: Ubuntu ${{ env.UBUNTU_VERSION }} $(date +%Y-%m-%d)
+        files: |
+          output/*.img.gz
+          output/*.sha256
         body: |
-          Minimal Ubuntu ${{ env.UBUNTU_VERSION }} with eBPF support
+          ## Ubuntu ${{ env.UBUNTU_VERSION }} with eBPF Runtime Support
           
-          Packages: linux-headers-generic, linux-tools (includes bpftool), libbpf1, clang, wget, net-tools, qemu-guest-agent
-          BPF filesystem configured at /sys/fs/bpf
+          **Included packages (minimal runtime):**
+          - libbpf1 (eBPF runtime library)
+          - Standard utilities (wget, curl, net-tools)
+          
+          **Features:**
+          - BPF filesystem configured at `/sys/fs/bpf`
+          - Ready for Cilium deployment
+          - Minimal footprint (~500MB vs 2GB+ with dev tools)
+          - Raw .img format (no conversion needed)
+          
+          **Usage:**
+          ```
+          gunzip ubuntu-${{ env.UBUNTU_VERSION }}-*.img.gz
+          # For QEMU:
+          qemu-system-x86_64 -hda ubuntu-${{ env.UBUNTU_VERSION }}-*.img -m 2048
+          # For Proxmox: Upload .img directly as disk image
+          ```
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cleanup
+      if: always()
+      run: |
+        sudo rm -rf output/
+        sudo rm -rf packer_cache/
