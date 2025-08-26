@@ -56,9 +56,27 @@ jobs:
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
-        apt-get install -y linux-headers-generic bpftool libbpf1 clang wget net-tools qemu-guest-agent
+        
+        # Install kernel headers and kernel-specific tools first
+        apt-get install -y linux-headers-generic
+        
+        # Get the installed kernel version and install corresponding tools
+        KERNEL_VERSION=$(ls /lib/modules/ | grep -E '^[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$KERNEL_VERSION" ]; then
+          apt-get install -y linux-tools-${KERNEL_VERSION} linux-tools-generic || \
+          apt-get install -y linux-tools-common
+        else
+          apt-get install -y linux-tools-common
+        fi
+        
+        # Install other eBPF-related packages
+        apt-get install -y libbpf1 clang wget net-tools qemu-guest-agent
+        
+        # Configure BPF filesystem
         echo "bpffs /sys/fs/bpf bpf defaults 0 0" >> /etc/fstab
         mkdir -p /sys/fs/bpf
+        
+        # Clean up
         apt-get clean
         rm -rf /var/lib/apt/lists/*
         EOF
@@ -73,7 +91,7 @@ jobs:
         sudo rm /mnt/ubuntu-image/tmp/customize_script.sh
         sudo rm /mnt/ubuntu-image/etc/resolv.conf
         
-        # Restore original resolv.conf symlink if it existed
+        # Restore original resolv.conf symlink
         if [ ! -f /mnt/ubuntu-image/etc/resolv.conf ]; then
           sudo chroot /mnt/ubuntu-image ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
         fi
@@ -97,7 +115,7 @@ jobs:
         body: |
           Minimal Ubuntu ${{ env.UBUNTU_VERSION }} with eBPF support
           
-          Packages: linux-headers-generic, bpftool, libbpf1, clang, wget, net-tools, qemu-guest-agent
+          Packages: linux-headers-generic, linux-tools (includes bpftool), libbpf1, clang, wget, net-tools, qemu-guest-agent
           BPF filesystem configured at /sys/fs/bpf
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
