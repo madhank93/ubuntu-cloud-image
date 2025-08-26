@@ -33,7 +33,6 @@ source "qemu" "ubuntu" {
   }
   
   ssh_username         = "ubuntu"
-  ssh_private_key_file = "./packer_key"
   ssh_timeout          = "30m"
 }
 

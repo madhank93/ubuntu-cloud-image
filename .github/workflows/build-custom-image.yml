@@ -24,9 +24,6 @@ jobs:
       - name: Initialize Packer
         id: init
         run: |
-          # The private key is stored as a secret in the GitHub repository
-          echo "${{ secrets.PACKER_PRIVATE_KEY }}" > packer_key
-          chmod 600 packer_key
           packer init .
         
       - name: Validate Packer template
