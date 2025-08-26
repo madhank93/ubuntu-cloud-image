@@ -1,5 +1,4 @@
 name: Build minimal Ubuntu eBPF image
-
 on:
   push:
     branches: [main]
@@ -44,6 +43,11 @@ jobs:
         sudo mount --bind /dev /mnt/ubuntu-image/dev
         sudo mount --bind /proc /mnt/ubuntu-image/proc
         sudo mount --bind /sys /mnt/ubuntu-image/sys
+        
+        # Handle resolv.conf properly
+        if [ -L /mnt/ubuntu-image/etc/resolv.conf ]; then
+          sudo rm /mnt/ubuntu-image/etc/resolv.conf
+        fi
         sudo cp /etc/resolv.conf /mnt/ubuntu-image/etc/resolv.conf
         
         # Create and run customization script
@@ -68,6 +72,11 @@ jobs:
         # Clean up
         sudo rm /mnt/ubuntu-image/tmp/customize_script.sh
         sudo rm /mnt/ubuntu-image/etc/resolv.conf
+        
+        # Restore original resolv.conf symlink if it existed
+        if [ ! -f /mnt/ubuntu-image/etc/resolv.conf ]; then
+          sudo chroot /mnt/ubuntu-image ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+        fi
         
         # Unmount everything
         sudo umount /mnt/ubuntu-image/dev
