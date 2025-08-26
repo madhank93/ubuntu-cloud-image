@@ -1,0 +1,61 @@
+name: Build minimal Ubuntu eBPF image
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+env:
+  UBUNTU_VERSION: "24.04"
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libguestfs-tools wget
+    
+    - name: Download base image
+      run: |
+        wget https://cloud-images.ubuntu.com/releases/${{ env.UBUNTU_VERSION }}/release/ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img
+    
+    - name: Customize image
+      run: |
+        # Only install essential eBPF packages
+        sudo virt-customize -a ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img \
+          --update \
+          --install linux-headers-generic,bpftool,libbpf1,clang \
+          --run-command 'echo "bpffs /sys/fs/bpf bpf defaults 0 0" >> /etc/fstab' \
+          --run-command 'mkdir -p /sys/fs/bpf' \
+          --run-command 'apt-get clean && rm -rf /var/lib/apt/lists/*'
+        
+        # Rename with date
+        mv ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img ubuntu-ebpf-$(date +%Y%m%d).img
+    
+    - name: Verify eBPF tools
+      run: |
+        sudo virt-ls -a ubuntu-ebpf-$(date +%Y%m%d).img /usr/sbin/bpftool
+    
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v$(date +%Y%m%d)
+        name: Ubuntu eBPF $(date +%Y-%m-%d)
+        files: ubuntu-ebpf-*.img
+        body: |
+          Minimal Ubuntu ${{ env.UBUNTU_VERSION }} with eBPF support
+          
+          Packages: linux-headers-generic, bpftool, libbpf1, clang
+          BPF filesystem configured at /sys/fs/bpf
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
