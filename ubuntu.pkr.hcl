@@ -12,11 +12,13 @@ variable "image_url" {
   default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
 }
 
-
 source "qemu" "ubuntu" {
   iso_url              = var.image_url
+  iso_checksum         = "none"
+  disk_image           = true
+
   output_directory     = "output"
-  shutdown_command     = "sudo -S shutdown -P now"
+  shutdown_command     = "sudo shutdown -P now"
   disk_interface       = "virtio"
   net_device           = "virtio-net"
   disk_size            = "30G"
@@ -24,16 +26,14 @@ source "qemu" "ubuntu" {
   accelerator          = "kvm"
   headless             = true
   
-  http_directory       = "http"
-  boot_command = [
-    "<enter><wait><enter><wait><f6><esc><wait>",
-    "autoinstall ds=nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ",
-    "--- <enter>"
-  ]
-
-  boot_wait            = "5s"
+  cloud_init_cdrom     = true
+  cloud_init = {
+      user_data_file   = "./packer/cloud-init.yml"
+      meta_data_file   = "./packer/meta-data"
+  }
+  
   ssh_username         = "ubuntu"
-  ssh_private_key_file = "./packer_key" # Use the temporary private key for connection
+  ssh_private_key_file = "./packer_key"
   ssh_timeout          = "30m"
 }
 

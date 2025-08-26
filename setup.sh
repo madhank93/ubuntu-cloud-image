@@ -1,27 +1,19 @@
 #!/bin/bash
 set -euxo pipefail
 
-echo "Waiting for apt-get lock..."
+echo "Waiting for apt-get lock to be released..."
 while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 ; do
     sleep 5
 done
 
-# --- Standard Setup ---
-# Update and install necessary packages
+# The base cloud image already has the qemu-guest-agent.
+# We just need to update, upgrade, and install our desired packages.
 apt-get update
+apt-get upgrade -y
 apt-get install -y \
-  qemu-guest-agent \
   net-tools \
   ubuntu-drivers-common \
-  linux-generic # Ensure latest kernel is installed
-
-# Enable and start the qemu-guest-agent
-systemctl enable qemu-guest-agent
-systemctl start qemu-guest-agent
-
-# Final upgrade
-apt-get upgrade -y
-
+  linux-generic
 
 # --- Key Replacement and Securing ---
 # As the FINAL step, secure the image by replacing the temporary build key
