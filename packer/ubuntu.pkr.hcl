@@ -1,53 +1,58 @@
 packer {
-  required_version = ">= 1.9.0"
   required_plugins {
     qemu = {
-      version = "~> 1.0"
+      version = ">= 1.0.9"
       source  = "github.com/hashicorp/qemu"
     }
   }
 }
 
-variable "ubuntu_version" {
+variable "image_url" {
   type    = string
-  default = "24.04"
+  default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
 }
 
-variable "output_directory" {
-  type    = string
-  default = "output"
-}
 
 source "qemu" "ubuntu" {
-  source_path      = "ubuntu-${var.ubuntu_version}-server-cloudimg-amd64.img"
-  output_directory = var.output_directory
-  shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
-  disk_size        = "8G"
-  format           = "raw"  # Output raw .img format, not qcow2
-  vm_name          = "ubuntu-${var.ubuntu_version}.img"
+  iso_url              = var.image_url
+  output_directory     = "output"
+  shutdown_command     = "sudo -S shutdown -P now"
+  disk_interface       = "virtio"
+  net_device           = "virtio-net"
+  disk_size            = "30G"
+  format               = "qcow2"
+  accelerator          = "kvm"
+  headless             = true
   
-  ssh_username = "ubuntu"
-  ssh_password = "ubuntu"
-  ssh_timeout = "20m"
-  
-  boot_wait = "10s"
+  http_directory       = "http"
   boot_command = [
-    "<enter><wait>",
+    "<enter><wait><enter><wait><f6><esc><wait>",
+    "autoinstall ds=nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ",
+    "--- <enter>"
   ]
+
+  boot_wait            = "5s"
+  ssh_username         = "ubuntu"
+  ssh_private_key_file = "./packer_key" # Use the temporary private key for connection
+  ssh_timeout          = "30m"
 }
 
 build {
   sources = ["source.qemu.ubuntu"]
 
+  # Run the main setup script
   provisioner "shell" {
-    script = "scripts/install.sh"
+    execute_command = "sudo -S -E sh -c '{{ .Command }}'"
+    script          = "setup.sh"
   }
 
+  # Final cleanup before creating the image
   provisioner "shell" {
     inline = [
+      "echo 'Cleaning up image...'",
+      "sudo rm -f /var/log/lastlog /var/log/alternatives.log /var/log/apt/history.log /var/log/apt/term.log",
       "sudo apt-get clean",
-      "sudo rm -rf /var/lib/apt/lists/*",
-      "sudo rm -rf /tmp/*"
+      "sudo cloud-init clean --logs --seed"
     ]
   }
 }
