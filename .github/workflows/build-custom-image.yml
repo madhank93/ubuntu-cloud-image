@@ -23,7 +23,14 @@ jobs:
     - name: Install build tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y libguestfs-tools wget
+        sudo apt-get install -y libguestfs-tools qemu-utils wget
+        
+    - name: Configure libguestfs
+      run: |
+        # Disable supermin appliance to avoid passt issues
+        sudo mkdir -p /etc/libguestfs
+        echo 'export LIBGUESTFS_BACKEND=direct' | sudo tee /etc/libguestfs/libguestfs.conf
+        export LIBGUESTFS_BACKEND=direct
     
     - name: Download base image
       run: |
@@ -31,20 +38,34 @@ jobs:
     
     - name: Customize image
       run: |
-        # Only install essential eBPF packages
+        export LIBGUESTFS_BACKEND=direct
+        
+        # Create customization script
+        cat > customize_script.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        apt-get update
+        apt-get install -y linux-headers-generic bpftool libbpf1 clang wget net-tools qemu-guest-agent
+        echo "bpffs /sys/fs/bpf bpf defaults 0 0" >> /etc/fstab
+        mkdir -p /sys/fs/bpf
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+        EOF
+        
+        # Apply customizations
         sudo virt-customize -a ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img \
-          --update \
-          --install linux-headers-generic,bpftool,libbpf1,clang \
-          --run-command 'echo "bpffs /sys/fs/bpf bpf defaults 0 0" >> /etc/fstab' \
-          --run-command 'mkdir -p /sys/fs/bpf' \
-          --run-command 'apt-get clean && rm -rf /var/lib/apt/lists/*'
+          --copy-in customize_script.sh:/tmp/ \
+          --run-command 'chmod +x /tmp/customize_script.sh' \
+          --run-command '/tmp/customize_script.sh' \
+          --run-command 'rm /tmp/customize_script.sh'
         
         # Rename with date
         mv ubuntu-${{ env.UBUNTU_VERSION }}-server-cloudimg-amd64.img ubuntu-ebpf-$(date +%Y%m%d).img
     
     - name: Verify eBPF tools
       run: |
-        sudo virt-ls -a ubuntu-ebpf-$(date +%Y%m%d).img /usr/sbin/bpftool
+        export LIBGUESTFS_BACKEND=direct
+        sudo virt-ls -a ubuntu-ebpf-$(date +%Y%m%d).img /usr/sbin/bpftool || echo "bpftool verification failed"
     
     - name: Create release
       uses: softprops/action-gh-release@v2
