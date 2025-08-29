@@ -1,0 +1,48 @@
+#cloud-config
+
+users:
+  - name: ubuntu
+    passwd: "supersecret"
+    lock_passwd: false
+    ssh_pwauth: true
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - clang
+  - llvm
+  - make
+  - gcc
+  - git
+  - curl
+  - wget
+  - net-tools
+  - qemu-guest-agent
+  - ubuntu-drivers-common
+  - linux-headers-$(uname -r)
+
+runcmd:
+  - |
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+    
+    # Update package lists and install any available upgrades
+    apt-get update
+    apt-get upgrade -y
+
+    # Autoinstall drivers
+    ubuntu-drivers autoinstall
+    
+    # Enable and start essential services
+    systemctl enable qemu-guest-agent
+    systemctl start qemu-guest-agent
+    
+    # Set the default shell for the ubuntu user
+    chsh -s /bin/bash ubuntu
+    
+    # Clean up apt cache to reduce image size
+    apt-get clean
+    
+    # Update GRUB bootloader
+    update-grub
