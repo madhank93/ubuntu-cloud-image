@@ -3,23 +3,25 @@ name: Build and Release Ubuntu Image
 on:
   push:
     branches:
-      - 'main' # Trigger on version tags like v1.0.0
+      - 'main'
   workflow_dispatch:
+
+env:
+  PRODUCT_VERSION: "1.10.0"
 
 jobs:
   build-packer-image:
     runs-on: ubuntu-latest
+    name: Build and Release Ubuntu Image
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Packer
+      - name: Setup `packer`
         uses: hashicorp/setup-packer@main
+        id: setup
         with:
-          version: 'latest'
+          version: ${{ env.PRODUCT_VERSION }}
 
       - name: Initialize Packer
         id: init
@@ -37,10 +39,10 @@ jobs:
           mv output/ubuntu ubuntu-${{ github.ref_name }}.qcow2
           echo "ARTIFACT_NAME=ubuntu-${{ github.ref_name }}.qcow2" >> $GITHUB_ENV
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: "${{ env.ARTIFACT_NAME }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Upload to GitHub Release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     files: "${{ env.ARTIFACT_NAME }}"
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
