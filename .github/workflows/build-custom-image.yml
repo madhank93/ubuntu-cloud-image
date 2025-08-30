@@ -60,6 +60,7 @@ jobs:
 
       - name: Rename artifact for release
         run: |
+          ls -lh artifacts/
           mv artifacts/* ubuntu-${{ github.ref_name }}.img
           file ubuntu-${{ github.ref_name }}.img
           ls -1 ubuntu-${{ github.ref_name }}.img | xargs realpath
