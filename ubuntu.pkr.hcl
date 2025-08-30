@@ -17,30 +17,39 @@ variable "image_checksum" {
   default = "sha256:834af9cd766d1fd86eca156db7dff34c3713fbbc7f5507a3269be2a72d2d1820"
 }
 
+variable "ssh_password" {
+  type    = string
+  default = "supersecret"
+}
+
+variable "ssh_username" {
+  type    = string
+  default = "ubuntu"
+}
+
 source "qemu" "ubuntu" {
   iso_url              = var.image_url
   iso_checksum         = var.image_checksum
 
   disk_image           = true
   output_directory     = "output"
-  
-  # VM Configuration
-  memory               = 2048
-  cpus                 = 2
+
   disk_interface       = "virtio"
   net_device           = "virtio-net"
+
   disk_size            = "30G"
-  format               = "qcow2"
+  format               = "raw"
   accelerator          = "kvm"
   headless             = true
 
-  # Cloud-init configuration via CD-ROM
-  cd_files = ["./http/user-data"]
-  cd_label = "cidata"
+  qemuargs = [
+    ["-cdrom", "cidata.iso"]
+  ]
 
-  ssh_username         = "ubuntu"
-  ssh_timeout          = "20m"
-  shutdown_command     = "sudo shutdown -P now"
+  ssh_username         = var.ssh_username
+  ssh_password         = var.ssh_password
+  ssh_timeout          = "10m"
+  shutdown_command     = "echo '${var.ssh_password}' | sudo -S shutdown -P now"
 }
 
 build {
@@ -48,18 +57,7 @@ build {
   
   provisioner "shell" {
     inline = [
-      "echo 'Waiting for cloud-init to complete...'",
-      "cloud-init status --wait",
-      "echo 'Cloud-init completed successfully'"
-    ]
-  }
-  
-  provisioner "shell" {
-    inline = [
-      "echo 'System information:'",
-      "uname -a",
-      "df -h",
-      "free -h"
+        "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for Cloud-Init...'; sleep 1; done" 
     ]
   }
 }

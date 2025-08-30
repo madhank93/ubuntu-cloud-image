@@ -37,6 +37,16 @@ jobs:
           echo "--- Running kvm-ok ---"
           sudo kvm-ok || echo "KVM check failed"
 
+      - name: Create Cloud-Init ISO from files
+        run: |
+          # Create the ISO from existing files
+          genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r http/user-data
+          
+          # Verify the ISO was created
+          ls -la cidata.iso
+          file cidata.iso
+
+
       - name: Setup `packer`
         uses: hashicorp/setup-packer@main
         id: setup

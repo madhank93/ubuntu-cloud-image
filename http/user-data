@@ -11,8 +11,6 @@ ssh_pwauth: true
 password: supersecret
 chpasswd:
   expire: false
-  list:
-    - ubuntu:supersecret
 
 # Ensure SSH service is enabled and started
 runcmd:
