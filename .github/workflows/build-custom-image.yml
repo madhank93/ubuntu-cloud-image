@@ -50,6 +50,7 @@ jobs:
           # Verify
           ls -la cidata.iso
           file cidata.iso
+          pwd
 
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
