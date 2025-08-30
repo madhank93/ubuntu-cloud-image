@@ -1,11 +1,19 @@
 #cloud-config
-
 users:
   - name: ubuntu
-    passwd: "supersecret"
-    plain_text_passwd: true
+    passwd: '$6$rounds=4096$saltsalt$hash'
     lock_passwd: false
-    ssh_pwauth: true
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+
+# Enable password authentication for SSH
+ssh_pwauth: true
+chpasswd:
+  expire: false
+  users:
+    - name: ubuntu
+      password: supersecret
+      type: text
 
 package_update: true
 package_upgrade: true
@@ -21,7 +29,7 @@ packages:
   - net-tools
   - qemu-guest-agent
   - ubuntu-drivers-common
-  - linux-headers-$(uname -r)
+  - linux-headers-generic
 
 runcmd:
   - |

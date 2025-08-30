@@ -7,7 +7,6 @@ packer {
   }
 }
 
-
 variable "image_url" {
   type    = string
   default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
@@ -33,22 +32,18 @@ source "qemu" "ubuntu" {
   accelerator          = "kvm"
   headless             = true
 
-  http_directory       = "http"
-  ssh_username         = "ubuntu"
-  ssh_password         = "supersecret"
-  ssh_timeout          = "30m"
-  shutdown_command     = "echo 'supersecret' | sudo -S shutdown -P now"
-  boot_command = [
-    "<esc><wait>",
-    "linux /casper/vmlinuz quiet autoinstall ds=nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ",
-    "initrd /casper/initrd<enter>",
-    "boot<enter>"
-  ]
+  # Cloud-init configuration via CD-ROM
+  cd_files = ["./http/user-data"]
+  cd_label = "cidata"
 
+  ssh_username         = "ubuntu"
+  ssh_timeout          = "20m"
+  shutdown_command     = "sudo shutdown -P now"
 }
 
 build {
   sources = ["source.qemu.ubuntu"]
+  
   provisioner "shell" {
     inline = [
         "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for Cloud-Init...'; sleep 1; done" 
