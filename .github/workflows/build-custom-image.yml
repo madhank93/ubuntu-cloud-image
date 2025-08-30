@@ -6,6 +6,10 @@ on:
       - 'main'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
 env:
   PRODUCT_VERSION: "1.14.1"
 
@@ -57,6 +61,7 @@ jobs:
       - name: Rename artifact for release
         run: |
           mv artifacts/* ubuntu-${{ github.ref_name }}.img
+          ls
 
       - name: Create Release and Upload Artifact
         uses: softprops/action-gh-release@v1
