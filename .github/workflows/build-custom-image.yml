@@ -17,37 +17,41 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install QEMU
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils cpu-checker genisoimage xorriso
-
-      - name: Enable KVM
+      - name: Enable KVM group perms
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Verify KVM availability
+      - name: Install QEMU and dependencies
         run: |
-          echo "--- Checking for /dev/kvm ---"
-          ls -la /dev/kvm
-          echo "--- Checking CPU virtualization support ---"
-          egrep -c '(vmx|svm)' /proc/cpuinfo || echo "No virtualization flags found"
-          echo "--- Running kvm-ok ---"
-          sudo kvm-ok || echo "KVM check failed"
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils genisoimage
 
-      - name: Create Cloud-Init ISO from files
+      # Critical: Use the EXACT format from the working Actuated example
+      - name: Create Cloud-Init ISO
         run: |
-          # Create the ISO from existing files
-          genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r http/user-data
+          # Create user-data with exact format from Actuated blog
+          cat > user-data << 'EOF'
+          #cloud-config
+          password: ubuntu
+          ssh_pwauth: true
+          chpasswd:
+            expire: false
+          EOF
           
-          # Verify the ISO was created
+          # Create minimal meta-data
+          cat > meta-data << 'EOF'
+          EOF
+          
+          # Create the ISO with exact parameters from Actuated
+          genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r user-data meta-data
+          
+          # Verify
           ls -la cidata.iso
           file cidata.iso
 
-
-      - name: Setup `packer`
+      - name: Setup Packer
         uses: hashicorp/setup-packer@main
         id: setup
         with:
