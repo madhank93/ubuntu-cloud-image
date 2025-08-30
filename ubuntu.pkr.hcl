@@ -38,6 +38,12 @@ source "qemu" "ubuntu" {
   ssh_password         = "supersecret"
   ssh_timeout          = "30m"
   shutdown_command     = "echo 'supersecret' | sudo -S shutdown -P now"
+  boot_command = [
+    "<esc><wait>",
+    "linux /casper/vmlinuz quiet autoinstall ds=nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ",
+    "initrd /casper/initrd<enter>",
+    "boot<enter>"
+  ]
 
 }
 

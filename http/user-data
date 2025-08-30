@@ -3,6 +3,7 @@
 users:
   - name: ubuntu
     passwd: "supersecret"
+    plain_text_passwd: true
     lock_passwd: false
     ssh_pwauth: true
 
