@@ -37,7 +37,7 @@ source "qemu" "ubuntu" {
   iso_checksum         = var.image_checksum
 
   disk_image           = true
-  output_directory     = "artifacts/${var.name}${var.version}"
+  output_directory     = "artifacts/${var.name}-${var.version}"
 
   disk_interface       = "virtio"
   net_device           = "virtio-net"

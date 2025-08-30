@@ -56,5 +56,21 @@ jobs:
 
       - name: Rename artifact for release
         run: |
-          mv artifacts/*.img ubuntu-${{ github.ref_name }}.img
-          echo "ARTIFACT_NAME=ubuntu-${{ github.ref_name }}.img" >> $GITHUB_ENV
+          mv artifacts/* ubuntu-${{ github.ref_name }}.img
+
+      - name: Create Release and Upload Artifact
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ubuntu-${{ github.ref_name }}.img
+          tag_name: v${{ env.PRODUCT_VERSION }}-${{ github.run_number }}
+          name: Ubuntu Image v${{ env.PRODUCT_VERSION }}-${{ github.run_number }}
+          body: |
+            ## Ubuntu Image Release
+            
+            Built from commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
+            Build date: ${{ github.event.head_commit.timestamp }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
