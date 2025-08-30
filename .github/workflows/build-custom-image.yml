@@ -20,7 +20,7 @@ jobs:
       - name: Install QEMU
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils cpu-checker
+          sudo apt-get install -y qemu-system-x86 qemu-utils cpu-checker genisoimage xorriso
 
       - name: Enable KVM
         run: |
