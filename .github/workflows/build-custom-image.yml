@@ -12,6 +12,8 @@ permissions:
 
 env:
   PRODUCT_VERSION: "1.14.1"
+  UBUNTU_VERSION: "22.04"
+  UBUNTU_NAME: "noble"
 
 jobs:
   build-packer-image:
@@ -32,7 +34,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils genisoimage
 
-      # Critical: Use the EXACT format from the working Actuated example
       - name: Create Cloud-Init ISO
         run: |
           # Create the ISO with exact parameters from Actuated
@@ -61,14 +62,13 @@ jobs:
       - name: Rename artifact for release
         run: |
           mv artifacts/* ubuntu-${{ github.ref_name }}.img
-          ls
 
       - name: Create Release and Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
           files: ubuntu-${{ github.ref_name }}.img
-          tag_name: v${{ env.PRODUCT_VERSION }}-${{ github.run_number }}
-          name: Ubuntu Image v${{ env.PRODUCT_VERSION }}-${{ github.run_number }}
+          tag_name: v${{ env.UBUNTU_NAME }}.${{env.UBUNTU_VERSION}}.${{ github.run_number }}
+          name: Ubuntu custom image v${{ env.UBUNTU_NAME }}.${{env.UBUNTU_VERSION}}.${{ github.run_number }}
           body: |
             ## Ubuntu Image Release
             
