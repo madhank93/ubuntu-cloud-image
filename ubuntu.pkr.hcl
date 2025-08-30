@@ -17,12 +17,27 @@ variable "image_checksum" {
   default = "sha256:834af9cd766d1fd86eca156db7dff34c3713fbbc7f5507a3269be2a72d2d1820"
 }
 
+variable "format" {
+  type    = string
+  default = "img"
+}
+
+variable "version" {
+  type    = string
+  default = "24.04"
+}
+
+variable "name" {
+  type    = string
+  default = "noble"
+}
+
 source "qemu" "ubuntu" {
   iso_url              = var.image_url
   iso_checksum         = var.image_checksum
 
   disk_image           = true
-  output_directory     = "output"
+  output_directory     = "artifacts/${var.name}${var.version}"
 
   disk_interface       = "virtio"
   net_device           = "virtio-net"

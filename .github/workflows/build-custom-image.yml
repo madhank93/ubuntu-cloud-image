@@ -31,26 +31,12 @@ jobs:
       # Critical: Use the EXACT format from the working Actuated example
       - name: Create Cloud-Init ISO
         run: |
-          # Create user-data with exact format from Actuated blog
-          cat > user-data << 'EOF'
-          #cloud-config
-          password: supersecret
-          ssh_pwauth: true
-          chpasswd:
-            expire: false
-          EOF
-          
-          # Create minimal meta-data
-          cat > meta-data << 'EOF'
-          EOF
-          
           # Create the ISO with exact parameters from Actuated
-          genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r user-data meta-data
+          genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r http/user-data http/meta-data
           
           # Verify
           ls -la cidata.iso
           file cidata.iso
-          pwd
 
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
@@ -70,5 +56,5 @@ jobs:
 
       - name: Rename artifact for release
         run: |
-          mv output/ubuntu ubuntu-${{ github.ref_name }}.qcow2
-          echo "ARTIFACT_NAME=ubuntu-${{ github.ref_name }}.qcow2" >> $GITHUB_ENV
+          mv artifacts/*.img ubuntu-${{ github.ref_name }}.img
+          echo "ARTIFACT_NAME=ubuntu-${{ github.ref_name }}.img" >> $GITHUB_ENV
