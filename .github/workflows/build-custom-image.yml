@@ -35,12 +35,7 @@ jobs:
 
       - name: Create Cloud-Init ISO
         run: |
-          # Create the ISO with exact parameters from Actuated
           genisoimage -output cidata.iso -input-charset utf-8 -volid cidata -joliet -r http/user-data http/meta-data
-          
-          # Verify
-          ls -la cidata.iso
-          file cidata.iso
 
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
@@ -60,15 +55,12 @@ jobs:
 
       - name: Rename artifact for release
         run: |
-          ls -lh artifacts/
-          mv artifacts/* ubuntu-${{ github.ref_name }}.img
-          file ubuntu-${{ github.ref_name }}.img
-          ls -1 ubuntu-${{ github.ref_name }}.img | xargs realpath
+          mv artifacts/* ubuntu-${{ github.ref_name }}.qcow2
 
       - name: Create Release and Upload Artifact
         uses: softprops/action-gh-release@v1
         with:
-          files: ubuntu-${{ github.ref_name }}.img
+          files: ubuntu-${{ github.ref_name }}.qcow2
           tag_name: v${{env.UBUNTU_VERSION}}-${{ github.run_number }}
           name: Ubuntu custom image v${{env.UBUNTU_VERSION}}-${{ github.run_number }}
           body: |
