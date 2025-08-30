@@ -34,7 +34,7 @@ jobs:
           # Create user-data with exact format from Actuated blog
           cat > user-data << 'EOF'
           #cloud-config
-          password: ubuntu
+          password: supersecret
           ssh_pwauth: true
           chpasswd:
             expire: false
