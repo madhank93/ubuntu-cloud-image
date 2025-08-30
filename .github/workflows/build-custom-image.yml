@@ -13,7 +13,6 @@ permissions:
 env:
   PRODUCT_VERSION: "1.14.1"
   UBUNTU_VERSION: "22.04"
-  UBUNTU_NAME: "noble"
 
 jobs:
   build-packer-image:
@@ -67,8 +66,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ubuntu-${{ github.ref_name }}.img
-          tag_name: v${{ env.UBUNTU_NAME }}.${{env.UBUNTU_VERSION}}.${{ github.run_number }}
-          name: Ubuntu custom image v${{ env.UBUNTU_NAME }}.${{env.UBUNTU_VERSION}}.${{ github.run_number }}
+          tag_name: v${{env.UBUNTU_VERSION}}-${{ github.run_number }}
+          name: Ubuntu custom image v${{env.UBUNTU_VERSION}}-${{ github.run_number }}
           body: |
             ## Ubuntu Image Release
             
