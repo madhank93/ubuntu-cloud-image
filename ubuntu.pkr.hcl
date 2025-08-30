@@ -27,8 +27,9 @@ source "qemu" "ubuntu" {
   disk_interface       = "virtio"
   net_device           = "virtio-net"
   
-  disk_size            = "30G"
-  format               = "raw"
+  disk_size            = "8G"
+  format               = "qcow2"
+  disk_compression     = true
   accelerator          = "kvm"
   headless             = true
 
@@ -36,7 +37,6 @@ source "qemu" "ubuntu" {
     ["-cdrom", "cidata.iso"]
   ]
 
-  # SSH configuration matching the cloud-init setup
   ssh_username         = "ubuntu"
   ssh_password         = "supersecret"
   ssh_timeout          = "10m"
@@ -49,6 +49,14 @@ build {
   provisioner "shell" {
     inline = [
         "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for Cloud-Init...'; sleep 1; done",
+    ]
+  }
+  
+  provisioner "shell" {
+    inline = [
+      "sudo apt-get clean",
+      "sudo rm -rf /var/lib/apt/lists/*",
+      "sudo fstrim -av"
     ]
   }
 }
