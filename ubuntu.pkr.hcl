@@ -34,26 +34,13 @@ source "qemu" "ubuntu" {
   accelerator          = "kvm"
   headless             = true
 
-  # Cloud-Init configuration
-  http_directory       = "http"
-  
-  # SSH Configuration - Use key authentication
-  ssh_username         = "ubuntu"
-  ssh_timeout          = "30m"
-  ssh_handshake_attempts = 20
-  ssh_pty              = true
-  
-  # No boot command needed for cloud images - they boot automatically
-  # The cloud-init configuration will be provided via the cloud-init disk
-  
-  # Create a cloud-init disk
-  cd_files = [
-    # "./http/meta-data",
-    "./http/user-data"
-  ]
+  # Cloud-init configuration via CD-ROM
+  cd_files = ["./http/user-data"]
   cd_label = "cidata"
-  
-  shutdown_command     = "echo 'ubuntu' | sudo -S shutdown -P now"
+
+  ssh_username         = "ubuntu"
+  ssh_timeout          = "20m"
+  shutdown_command     = "sudo shutdown -P now"
 }
 
 build {
