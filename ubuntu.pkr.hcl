@@ -30,7 +30,7 @@ source "qemu" "ubuntu" {
 
   disk_size            = "30G"
   format               = "raw"
-  accelerator          = "none"
+  accelerator          = "kvm"
   headless             = true
 
   http_directory       = "http"
