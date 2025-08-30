@@ -61,6 +61,8 @@ jobs:
       - name: Rename artifact for release
         run: |
           mv artifacts/* ubuntu-${{ github.ref_name }}.img
+          file ubuntu-${{ github.ref_name }}.img
+          ls -1 ubuntu-${{ github.ref_name }}.img | xargs realpath
 
       - name: Create Release and Upload Artifact
         uses: softprops/action-gh-release@v1
