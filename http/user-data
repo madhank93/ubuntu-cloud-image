@@ -1,24 +1,30 @@
 #cloud-config
 users:
   - name: ubuntu
-    passwd: '$6$rounds=4096$saltsalt$hash'  # Password hash for 'supersecret'
-    lock_passwd: false
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
+    lock_passwd: false
+    plain_text_passwd: supersecret
 
-# Enable password authentication for SSH
+# Enable password authentication
 ssh_pwauth: true
+password: supersecret
 chpasswd:
   expire: false
-  users:
-    - name: ubuntu
-      password: supersecret
-      type: text
+  list:
+    - ubuntu:supersecret
+
+# Ensure SSH service is enabled and started
+runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh
+  - systemctl restart ssh
 
 package_update: true
 package_upgrade: true
 
 packages:
+  - openssh-server
   - clang
   - llvm
   - make
@@ -31,27 +37,10 @@ packages:
   - ubuntu-drivers-common
   - linux-headers-generic
 
-runcmd:
-  - |
-    set -e
-    export DEBIAN_FRONTEND=noninteractive
-    
-    # Update package lists and install any available upgrades
-    apt-get update
-    apt-get upgrade -y
-
-    # Autoinstall drivers
-    ubuntu-drivers autoinstall
-    
-    # Enable and start essential services
-    systemctl enable qemu-guest-agent
-    systemctl start qemu-guest-agent
-    
-    # Set the default shell for the ubuntu user
-    chsh -s /bin/bash ubuntu
-    
-    # Clean up apt cache to reduce image size
-    apt-get clean
-    
-    # Update GRUB bootloader
-    update-grub
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-packer.conf
+    content: |
+      PasswordAuthentication yes
+      PermitRootLogin no
+      PubkeyAuthentication yes
+    permissions: '0644'
