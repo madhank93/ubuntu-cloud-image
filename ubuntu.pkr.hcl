@@ -7,7 +7,6 @@ packer {
   }
 }
 
-
 variable "image_url" {
   type    = string
   default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
@@ -24,34 +23,56 @@ source "qemu" "ubuntu" {
 
   disk_image           = true
   output_directory     = "output"
-
+  
+  # VM Configuration
+  memory               = 2048
+  cpus                 = 2
   disk_interface       = "virtio"
   net_device           = "virtio-net"
-
   disk_size            = "30G"
-  format               = "raw"
+  format               = "qcow2"
   accelerator          = "kvm"
   headless             = true
 
+  # Cloud-Init configuration
   http_directory       = "http"
+  
+  # SSH Configuration - Use key authentication
   ssh_username         = "ubuntu"
-  ssh_password         = "supersecret"
   ssh_timeout          = "30m"
-  shutdown_command     = "echo 'supersecret' | sudo -S shutdown -P now"
-  boot_command = [
-    "<esc><wait>",
-    "linux /casper/vmlinuz quiet autoinstall ds=nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ",
-    "initrd /casper/initrd<enter>",
-    "boot<enter>"
+  ssh_handshake_attempts = 20
+  ssh_pty              = true
+  
+  # No boot command needed for cloud images - they boot automatically
+  # The cloud-init configuration will be provided via the cloud-init disk
+  
+  # Create a cloud-init disk
+  cd_files = [
+    # "./http/meta-data",
+    "./http/user-data"
   ]
-
+  cd_label = "cidata"
+  
+  shutdown_command     = "echo 'ubuntu' | sudo -S shutdown -P now"
 }
 
 build {
   sources = ["source.qemu.ubuntu"]
+  
   provisioner "shell" {
     inline = [
-        "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for Cloud-Init...'; sleep 1; done" 
+      "echo 'Waiting for cloud-init to complete...'",
+      "cloud-init status --wait",
+      "echo 'Cloud-init completed successfully'"
+    ]
+  }
+  
+  provisioner "shell" {
+    inline = [
+      "echo 'System information:'",
+      "uname -a",
+      "df -h",
+      "free -h"
     ]
   }
 }

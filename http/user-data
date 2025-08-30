@@ -1,12 +1,32 @@
 #cloud-config
 
+# Set hostname
+hostname: ubuntu-vm
+fqdn: ubuntu-vm.local
+
+# User configuration
 users:
   - name: ubuntu
-    passwd: "supersecret"
-    plain_text_passwd: true
+    gecos: Ubuntu User
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin, sudo
+    shell: /bin/bash
     lock_passwd: false
+    # Set password (hashed)
+    passwd: "$6$rounds=4096$saltsalt$L.Zepln.mwSx7Ubl9l7B4VBLsP3rL0VdlZL1v2z6QMp3i9lMLW.h9fYlJJgK9qx4KQfYC7w6R4l5ZT5z8G0z3v/"
+    # Enable SSH password auth temporarily
     ssh_pwauth: true
+    # Add SSH key (Packer will inject its own key)
+    ssh_authorized_keys: []
 
+# Enable SSH password authentication temporarily for Packer
+ssh_pwauth: true
+
+# System configuration
+timezone: UTC
+locale: en_US.UTF-8
+
+# Package management
 package_update: true
 package_upgrade: true
 
@@ -19,31 +39,60 @@ packages:
   - curl
   - wget
   - net-tools
+  - openssh-server
   - qemu-guest-agent
   - ubuntu-drivers-common
-  - linux-headers-$(uname -r)
+  - linux-headers-generic
+  - cloud-init
 
+# Services
 runcmd:
   - |
     set -e
     export DEBIAN_FRONTEND=noninteractive
     
-    # Update package lists and install any available upgrades
-    apt-get update
-    apt-get upgrade -y
-
-    # Autoinstall drivers
-    ubuntu-drivers autoinstall
+    # Ensure SSH is properly configured
+    systemctl enable ssh
+    systemctl start ssh
     
-    # Enable and start essential services
+    # Enable and start QEMU guest agent
     systemctl enable qemu-guest-agent
     systemctl start qemu-guest-agent
     
-    # Set the default shell for the ubuntu user
-    chsh -s /bin/bash ubuntu
+    # Install and configure drivers
+    ubuntu-drivers autoinstall || true
     
-    # Clean up apt cache to reduce image size
+    # Clean up
+    apt-get autoremove -y
     apt-get clean
     
-    # Update GRUB bootloader
+    # Remove cloud-init logs to prepare for cloning
+    rm -rf /var/lib/cloud/instances/*
+    rm -rf /var/log/cloud-init*
+    
+    # Update GRUB
     update-grub
+
+# Ensure cloud-init runs on first boot
+cloud_init_modules:
+  - migrator
+  - seed_random
+  - bootcmd
+  - write-files
+  - growpart
+  - resizefs
+  - disk_setup
+  - mounts
+  - set_hostname
+  - update_hostname
+  - update_etc_hosts
+  - ca-certs
+  - rsyslog
+  - users-groups
+  - ssh
+
+# Power management
+power_state:
+  mode: reboot
+  timeout: 30
+  condition: True
